@@ -36,5 +36,9 @@ In this paper, the environment is simulated through a simulator called `SUMO`.
 
 * The Q function maps the state action pairs to a cumulative sum of future rewards. 
 
-$$Q_\pi(s,a) $$
+$Q_\pi(s,a)$, the cumulative reward function  can be computed via Bellman equation. 
+
+### 5. Reinforcement Learning Model 
+
+
 
