@@ -14,22 +14,27 @@ In this paper, the environment is simulated through a simulator called `SUMO`.
 
 #### Some Definitions
 	
-	* Traffic lights are used to control the traffic flow. (yes, duh) 
+* Traffic lights are used to control the traffic flow. (yes, duh) 
 
-	* Traffic light gathers road traffic information via a vehicular network. Traffic light somehow processes the data to obtain road traffic's state and reward. 
+* Traffic light gathers road traffic information via a vehicular network. Traffic light somehow processes the data to obtain road traffic's state and reward. 
 
-	* Then there is a decision making process: depending on the state, the traffic light somehow chooses an action which aims to maximize a reward function. I don't understand how/why but the road traffic is directly linked to a state and a reward. 
+* Then there is a decision making process: depending on the state, the traffic light somehow chooses an action which aims to maximize a reward function. I don't understand how/why but the road traffic is directly linked to a state and a reward. 
 
-	* At a given intersection with multiple directions, one might need to have multiple traffic lights. So the action space is larger. 
+* At a given intersection with multiple directions, one might need to have multiple traffic lights. So the action space is larger. 
 
-	* Traffic light status : an allowable color configuration? 
+* Traffic light status : an allowable color configuration? 
 
-	* the duration for which one uses a status is called a phase. the (possible?) number of phases is the number of legal statuses. 
+* the duration for which one uses a status is called a phase. the (possible?) number of phases is the number of legal statuses. 
 
-	* phases cyclically change in a fixed sequence to guide vehicles to pass the intersection. if we have a circular phase structure, we call that a cycle. 
+* phases cyclically change in a fixed sequence to guide vehicles to pass the intersection. if we have a circular phase structure, we call that a cycle. 
 
-	* the sequence of phases in a cycle is fixed, but the duration of each phase is adaptive.  
+* the sequence of phases in a cycle is fixed, but the duration of each phase is adaptive.  
 
-* The general idea is to maximize the total number cars passing through. 
+#### The general idea is to maximize the total number cars passing through. 
 
+### 4. Some RL vulgarization 
+
+* The Q function maps the state action pairs to a cumulative sum of future rewards. 
+
+$$Q_\pi(s,a) $$
 
