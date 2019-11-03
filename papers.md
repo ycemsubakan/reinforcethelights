@@ -1,4 +1,4 @@
-# The papers we read 
+# Things we read for the Traffic Lights Problem
 
 ## Deep Reinforcement Learning for Traffic Light Control in Vehicular Networks
 
@@ -50,3 +50,17 @@ $Q _ \pi(s,a)$, the cumulative reward function  can be computed via Bellman equa
 
 
 ### 6. Double Dueling Deep Q Network 
+
+I am not an expert on Reinforcement Learning. But here are the pre-requisites to get what's happening I think:
+
+* https://arxiv.org/pdf/1803.11115.pdf
+
+
+
+## Alexandre Bayen talk on Reinforcement Learning in Transportation: 
+
+https://www.youtube.com/watch?v=gOwm5JMvPQM&feature=youtu.be
+
+This is a very good talk. He shows how traffic efficiency can be ameliorated with Reinforcement Learning. He mentions how the results they are getting supersedes mathematical models that came before. Basically the system is too complex for our little brains to build mathematical models. We instead define reward structures, and let computational exploration find a good solution. Cars circling is a great example for this. 
+
+
