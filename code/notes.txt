@@ -1,0 +1,19 @@
+- truc avec bluetooth, je ne comprends pas ou sont les capteurs ? 
+- on a des comptes, mais on ne connait pas les directions 
+
+- est-ce que les observations dans la simulateur vont etre la meme celle qu'on dans le simulateur ? 
+
+
+- quel est le model derriere le simulateur ? -- si la simulateur est vraiment bien, on pourrait juste faire une cherche intelligent.. 
+- ils n'entregistrent pas toute la data. 
+- autobus / pompiers, des fois ils ont la priorité 
+- des recompanses qui changent en fonction du temps 
+
+----- 
+
+team meeting Nov 7
+
+- architecture search, company: crystal ?, RL ? 
+- material science projects 
+- IRAP ? 
+- Upscaling ? 
