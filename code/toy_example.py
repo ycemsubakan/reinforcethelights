@@ -76,7 +76,7 @@ for s in range(4):
                 Pspsa[:, s, a] = torch.tensor([0, 1-p2, 0, p2])
 
 V = torch.rand(4)
-gam = 0.5
+gam = 0.1
 
 # do the value iterations
 for e in range(100):
