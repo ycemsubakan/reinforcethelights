@@ -41,11 +41,17 @@ def policy_improvement(
         max_iter=100000):
 
     pi = torch.randint(0, 2, (4, )).byte()
-    for i in range(10):
+    delta = 1.
+    i = 0
+    while delta > threshold and i < max_iter:
         V = policy_evaluation(pi, Prsa, Pspsa, possible_r)
         reward_term = (Prsa * possible_r).sum(0)
         state_term = gamma * (V.view(-1, 1, 1) * Pspsa).sum(0)
-        pi = (reward_term + state_term).max(-1)[1]
+        pi2 = (reward_term + state_term).max(-1)[1]
+        delta = (pi-pi2).sum().abs()
+        pi = pi2
+        i += 1
+    print('Policy improvement converged after {} epoch'.format(i))
 
 
 def value_iteration(
