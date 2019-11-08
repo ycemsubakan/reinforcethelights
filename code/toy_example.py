@@ -5,23 +5,31 @@ import copy
 
 def policy_evaluation(
         pi,
+        Prsa,
+        Pspsa,
+        possible_r,
         gamma=0.5,
         threshold=1e-6,
         max_iter=100000):
+    # pdb.set_trace()
     V = torch.rand(4)
     delta = 1.
     i = 0
-    # ids = torch.Tensor([[0, 0, 1, 1], [0, 0, 1, 1]]).unsqueeze(-1).long()
-    # Prsa.gather(2, ids)
     while delta > threshold and i < max_iter:
-        reward_term = (Prsa * possible_r).sum(0)
-        state_term = gamma * (V.view(-1, 1, 1) * Pspsa).sum(0)
+        Prspi = Prsa.gather(2, pi.repeat(
+            Prsa.size(0), 1).unsqueeze(-1).long())
+        reward_term = (Prspi * possible_r).sum(0)
+
+        Pspspi = Pspsa.gather(2, pi.repeat(
+            Pspsa.size(0), 1).unsqueeze(-1).long())
+        state_term = gamma * (V.view(-1, 1, 1) * Pspspi).sum(0)
 
         V2 = (reward_term + state_term).max(-1)[0]
         delta = (V2-V).sum().abs()
         V = V2
         i += 1
     print('Policy evaluation converged after {} epoch'.format(i))
+    return V
 
 
 def policy_improvement(
@@ -34,6 +42,7 @@ def policy_improvement(
 
     pi = torch.randint(0, 2, (4, )).byte()
     for i in range(10):
+        V = policy_evaluation(pi, Prsa, Pspsa, possible_r)
         reward_term = (Prsa * possible_r).sum(0)
         state_term = gamma * (V.view(-1, 1, 1) * Pspsa).sum(0)
         pi = (reward_term + state_term).max(-1)[1]
@@ -141,7 +150,7 @@ for s in range(4):
             else:
                 Pspsa[:, s, a] = torch.tensor([0, 1-p2, 0, p2])
 
-
+policy_improvement(Prsa, Pspsa, possible_r)
 pi, reward_term, state_term = value_iteration(Prsa, Pspsa, possible_r)
 
 
