@@ -78,6 +78,69 @@ def value_iteration(
     return pi, reward_term, state_term
 
 
+def simulate(x1, x2, pi):
+    twait = 0
+    all_actions = []
+    print('total vehicles {}'.format(sum(x1) + sum(x2)))
+    # see how well the policy above does
+    while (len(x1) > 0) or (len(x2) > 0):
+        # print('first list {}'.format(x1))
+        # print('second list {}'.format(x2))
+
+        if len(x1) > 0 and len(x2) > 0:
+            state = (x1[0], x2[0])
+        elif len(x1) == 0 and len(x2) > 0:
+            state = (0, x2[0])
+            x1 = [0]
+        elif len(x1) > 0 and len(x2) == 0:
+            state = (x1[0], 0)
+            x2 = [0]
+
+        a = pi.get_action(state)
+
+        all_actions.append(a)
+
+        if a == 0:
+            x1.pop(0)
+            if x2[0] == 0:
+                x2.pop(0)
+        else:
+            x2.pop(0)
+            if x1[0] == 0:
+                x1.pop(0)
+
+        twait = twait + 1
+
+    # print(all_actions)
+    return twait
+
+
+class Policy():
+
+    def __init__(self, pi):
+        self.pi = pi
+
+    def get_action(self, state):
+        state_index = possible_S.index(state)
+        return self.pi[state_index]
+
+    def update(self, pi):
+        self.pi = pi
+
+
+class HeuristicPolicy():
+
+    def __init__(self):
+        self.action = 1
+
+    def get_action(self, state):
+        if s[0] == 1:
+            self.action = 1
+        elif s[1] == 1:
+            self.action = 2
+        return self.action
+
+
 torch.manual_seed(6666)
 
 
@@ -93,10 +156,8 @@ x1org = copy.deepcopy(x1)
 x2org = copy.deepcopy(x2)
 
 # solve the problem with handcrafted policy
-y = []
 twait = 0
 all_actions = []
-a = 1
 print('total vehicles {}'.format(sum(x1) + sum(x2)))
 while (len(x1) > 0) or (len(x2) > 0):
     print('first list {}'.format(x1))
@@ -159,41 +220,8 @@ for s in range(4):
 policy_improvement(Prsa, Pspsa, possible_r)
 pi, reward_term, state_term = value_iteration(Prsa, Pspsa, possible_r)
 
-
-twait_rl = 0
-all_actions_rl = []
-# see how well the policy above does
-while (len(x1org) > 0) or (len(x2org) > 0):
-    print('first list {}'.format(x1org))
-    print('second list {}'.format(x2org))
-
-    if len(x1org) > 0 and len(x2org) > 0:
-        state = (x1org[0], x2org[0])
-    elif len(x1org) == 0 and len(x2org) > 0:
-        state = (0, x2org[0])
-        x1org = [0]
-    elif len(x1org) > 0 and len(x2org) == 0:
-        state = (x1org[0], 0)
-        x2org = [0]
-
-    s = possible_S.index(state)
-
-    a = pi[s]
-    na = 1 - a
-    all_actions_rl.append(a)
-
-    if a == 0:
-        x1org.pop(0)
-        if x2org[0] == 0:
-            x2org.pop(0)
-    else:
-        x2org.pop(0)
-        if x1org[0] == 0:
-            x1org.pop(0)
-
-    twait_rl = twait_rl + 1
-
-print(all_actions_rl)
+twait_rl = simulate(x1, x2, pi)
+print(x1)
 
 print('total wait time heuristic {}'.format(twait))
 print('total wait time reinforcement {}'.format(twait_rl))
