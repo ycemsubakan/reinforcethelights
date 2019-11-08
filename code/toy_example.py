@@ -3,6 +3,42 @@ import pdb
 import copy
 
 
+def policy_evaluation(
+        pi,
+        gamma=0.5,
+        threshold=1e-6,
+        max_iter=100000):
+    V = torch.rand(4)
+    delta = 1.
+    i = 0
+    # ids = torch.Tensor([[0, 0, 1, 1], [0, 0, 1, 1]]).unsqueeze(-1).long()
+    # Prsa.gather(2, ids)
+    while delta > threshold and i < max_iter:
+        reward_term = (Prsa * possible_r).sum(0)
+        state_term = gamma * (V.view(-1, 1, 1) * Pspsa).sum(0)
+
+        V2 = (reward_term + state_term).max(-1)[0]
+        delta = (V2-V).sum().abs()
+        V = V2
+        i += 1
+    print('Policy evaluation converged after {} epoch'.format(i))
+
+
+def policy_improvement(
+        Prsa,
+        Pspsa,
+        possible_r,
+        gamma=0.5,
+        threshold=1e-6,
+        max_iter=100000):
+
+    pi = torch.randint(0, 2, (4, )).byte()
+    for i in range(10):
+        reward_term = (Prsa * possible_r).sum(0)
+        state_term = gamma * (V.view(-1, 1, 1) * Pspsa).sum(0)
+        pi = (reward_term + state_term).max(-1)[1]
+
+
 def value_iteration(
         Prsa,
         Pspsa,
@@ -146,4 +182,4 @@ print(all_actions_rl)
 
 print('total wait time heuristic {}'.format(twait))
 print('total wait time reinforcement {}'.format(twait_rl))
-# :pdb.set_trace()
+pdb.set_trace()
