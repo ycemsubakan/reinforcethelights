@@ -52,6 +52,7 @@ def policy_improvement(
         pi = pi2
         i += 1
     print('Policy improvement converged after {} epoch'.format(i))
+    return pi
 
 
 def value_iteration(
@@ -79,13 +80,14 @@ def value_iteration(
 
 
 def simulate(x1, x2, pi):
+    # pdb.set_trace()
     twait = 0
     all_actions = []
     print('total vehicles {}'.format(sum(x1) + sum(x2)))
     # see how well the policy above does
     while (len(x1) > 0) or (len(x2) > 0):
-        # print('first list {}'.format(x1))
-        # print('second list {}'.format(x2))
+        print('first list {}'.format(x1))
+        print('second list {}'.format(x2))
 
         if len(x1) > 0 and len(x2) > 0:
             state = (x1[0], x2[0])
@@ -97,7 +99,7 @@ def simulate(x1, x2, pi):
             x2 = [0]
 
         a = pi.get_action(state)
-
+        print(a)
         all_actions.append(a)
 
         if a == 0:
@@ -117,11 +119,12 @@ def simulate(x1, x2, pi):
 
 class Policy():
 
-    def __init__(self, pi):
+    def __init__(self, pi, possible_S):
         self.pi = pi
+        self.possible_S = possible_S
 
     def get_action(self, state):
-        state_index = possible_S.index(state)
+        state_index = self.possible_S.index(state)
         return self.pi[state_index]
 
     def update(self, pi):
@@ -131,98 +134,65 @@ class Policy():
 class HeuristicPolicy():
 
     def __init__(self):
-        self.action = 1
+        self.action = 0
 
     def get_action(self, state):
-        if s[0] == 1:
+        # pdb.set_trace()
+        if state[0] == 1:
+            self.action = 0
+        elif state[1] == 1:
             self.action = 1
-        elif s[1] == 1:
-            self.action = 2
         return self.action
 
 
-torch.manual_seed(6666)
+def build_markov_model():
+    Prsa = torch.zeros(2, 4, 2)
+    Pspsa = torch.zeros(4, 4, 2)
 
-
-N = 10
-p1 = 0.5
-p2 = 0.5
-x1 = [torch.randint(0, 2, (1, )).byte().item() for n in range(N)]
-x2 = [torch.randint(0, 2, (1, )).byte().item() for n in range(N)]
-
-print(x1)
-
-x1org = copy.deepcopy(x1)
-x2org = copy.deepcopy(x2)
-
-# solve the problem with handcrafted policy
-twait = 0
-all_actions = []
-print('total vehicles {}'.format(sum(x1) + sum(x2)))
-while (len(x1) > 0) or (len(x2) > 0):
-    print('first list {}'.format(x1))
-    print('second list {}'.format(x2))
-
-    if len(x1) > 0 and len(x2) > 0:
-        s = (x1[0], x2[0])
-    elif len(x1) == 0 and len(x2) > 0:
-        s = (0, x2[0])
-        x1 = [0]
-
-    if s[0] == 1:
-        x1.pop(0)
-        if s[1] == 0:
-            x2.pop(0)
-        a = 1
-    elif s[1] == 1:
-        x2.pop(0)
-        if s[0] == 0:
-            x1.pop(0)
-        a = 2
-    else:
-        x1.pop(0)
-        x2.pop(0)
-    all_actions.append(a)
-    twait = twait + 1
-
-print(all_actions)
-print('total wait time {}'.format(twait))
-
-
-# now, try to learn the thing with value iteration
-Prsa = torch.zeros(2, 4, 2)
-Pspsa = torch.zeros(4, 4, 2)
-
-possible_S = [(0, 0), (1, 0), (0, 1), (1, 1)]
-possible_r = torch.tensor([0, 1]).view(-1, 1, 1).float()
-for s in range(4):
-    for a in range(2):
-        # fill in the reward table
-        if possible_S[s][a] == 1:
-            Prsa[:, s, a] = torch.tensor([0, 1])
-        else:
-            Prsa[:, s, a] = torch.tensor([1, 0])
-
-        # fill in the next state table
-        if a == 0:
-            if s < 2:
-                Pspsa[:, s, a] = torch.tensor(
-                    [(1-p1)*(1-p2), p1*(1-p2), (1-p1)*p2, p1*p2])
+    possible_S = [(0, 0), (1, 0), (0, 1), (1, 1)]
+    possible_r = torch.tensor([0, 1]).view(-1, 1, 1).float()
+    for s in range(4):
+        for a in range(2):
+            # fill in the reward table
+            if possible_S[s][a] == 1:
+                Prsa[:, s, a] = torch.tensor([0, 1])
             else:
-                Pspsa[:, s, a] = torch.tensor([0, 0, 1-p1, p1])
-        else:
-            if s in [0, 2]:
-                Pspsa[:, s, a] = torch.tensor(
-                    [(1-p1)*(1-p2), p1*(1-p2), (1-p1)*p2, p1*p2])
+                Prsa[:, s, a] = torch.tensor([1, 0])
+
+            # fill in the next state table
+            if a == 0:
+                if s < 2:
+                    Pspsa[:, s, a] = torch.tensor(
+                        [(1-p1)*(1-p2), p1*(1-p2), (1-p1)*p2, p1*p2])
+                else:
+                    Pspsa[:, s, a] = torch.tensor([0, 0, 1-p1, p1])
             else:
-                Pspsa[:, s, a] = torch.tensor([0, 1-p2, 0, p2])
+                if s in [0, 2]:
+                    Pspsa[:, s, a] = torch.tensor(
+                        [(1-p1)*(1-p2), p1*(1-p2), (1-p1)*p2, p1*p2])
+                else:
+                    Pspsa[:, s, a] = torch.tensor([0, 1-p2, 0, p2])
+    return Prsa, Pspsa, possible_r, possible_S
 
-policy_improvement(Prsa, Pspsa, possible_r)
-pi, reward_term, state_term = value_iteration(Prsa, Pspsa, possible_r)
 
-twait_rl = simulate(x1, x2, pi)
-print(x1)
+if __name__ == '__main__':
 
-print('total wait time heuristic {}'.format(twait))
-print('total wait time reinforcement {}'.format(twait_rl))
-pdb.set_trace()
+    torch.manual_seed(6666)
+
+    N = 10
+    p1 = 0.5
+    p2 = 0.5
+    x1 = [torch.randint(0, 2, (1, )).byte().item() for n in range(N)]
+    x2 = [torch.randint(0, 2, (1, )).byte().item() for n in range(N)]
+
+    Prsa, Pspsa, possible_r, possible_S = build_markov_model()
+
+    policy_improvement(Prsa, Pspsa, possible_r)
+    pi, reward_term, state_term = value_iteration(Prsa, Pspsa, possible_r)
+
+    hpolicy = HeuristicPolicy()
+    twait_h = simulate(copy.deepcopy(x1), copy.deepcopy(x2), hpolicy)
+    print('total wait time heuristic {}'.format(twait_h))
+
+    # print('total wait time reinforcement {}'.format(twait_rl))
+    pdb.set_trace()
