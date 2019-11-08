@@ -11,7 +11,6 @@ def policy_evaluation(
         gamma=0.5,
         threshold=1e-6,
         max_iter=100000):
-    # pdb.set_trace()
     V = torch.rand(4)
     delta = 1.
     i = 0
@@ -80,15 +79,11 @@ def value_iteration(
 
 
 def simulate(x1, x2, pi):
-    # pdb.set_trace()
     twait = 0
     all_actions = []
-    print('total vehicles {}'.format(sum(x1) + sum(x2)))
-    # see how well the policy above does
     while (len(x1) > 0) or (len(x2) > 0):
-        print('first list {}'.format(x1))
-        print('second list {}'.format(x2))
 
+        # Create the state
         if len(x1) > 0 and len(x2) > 0:
             state = (x1[0], x2[0])
         elif len(x1) == 0 and len(x2) > 0:
@@ -98,10 +93,9 @@ def simulate(x1, x2, pi):
             state = (x1[0], 0)
             x2 = [0]
 
+        # Retrieve the action and modify the state
         a = pi.get_action(state)
-        print(a)
         all_actions.append(a)
-
         if a == 0:
             x1.pop(0)
             if x2[0] == 0:
@@ -187,12 +181,14 @@ if __name__ == '__main__':
 
     Prsa, Pspsa, possible_r, possible_S = build_markov_model()
 
+    hpolicy = HeuristicPolicy()
+    twait_h = simulate(copy.deepcopy(x1), copy.deepcopy(x2), hpolicy)
+
     policy_improvement(Prsa, Pspsa, possible_r)
     pi, reward_term, state_term = value_iteration(Prsa, Pspsa, possible_r)
 
-    hpolicy = HeuristicPolicy()
-    twait_h = simulate(copy.deepcopy(x1), copy.deepcopy(x2), hpolicy)
+    rlpolicy = Policy(pi, possible_S)
+    twait_rl = simulate(copy.deepcopy(x1), copy.deepcopy(x2), rlpolicy)
     print('total wait time heuristic {}'.format(twait_h))
-
-    # print('total wait time reinforcement {}'.format(twait_rl))
-    pdb.set_trace()
+    print('total wait time reinforcement {}'.format(twait_rl))
+    # pdb.set_trace()
