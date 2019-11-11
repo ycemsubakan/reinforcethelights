@@ -1,5 +1,7 @@
 # Things we read for the Traffic Lights Problem
 
+* https://arxiv.org/pdf/1710.05465.pdf
+
 ## Deep Reinforcement Learning for Traffic Light Control in Vehicular Networks
 
 ### 1. Intro
