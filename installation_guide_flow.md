@@ -1,4 +1,6 @@
-## Building the container 
+## Building the container (if you want to keep eveyrything inside the container) 
+
+* *Note:*  The approach below installs the conda environment within the container. This would work if you have sudo permission in the cluster, as the flow environment try to write on the installation path. 
 
 * This will be done on a place where we have sudo. 
 * We first pull the container with `singularity pull docker://pytorch/pytorch:1.0.1-cuda10.0-cudnn7-runtime`. (I picked this from https://docs.mila.quebec/singularity/index.html - It comes with Ubuntu 16.04 and cuda stuff installed ) 
@@ -36,4 +38,8 @@ And it solved my problem. I found the solution here: `https://github.com/NVIDIA/
 
 * /usr/local/home/anaconda3/envs/flow/bin/python examples/sumo/sugiyama.py 
 
+## Hybrid installation 
+
+* Here, we install conda outside the container. We cannot use the conda of the modules available on the Mila cluster because inside the cluster, we cannot see the /ai/ path, which in which the conda of the module is loaded. 
+* I therefore installed a conda on my home path, and I then source the anaconda at my home path within the container. I also added the path of the sumo binaries (that is `/usr/local/home` in the bashrc, so when I source it, the path of of the sumo path is added to `$PATH`)
 
