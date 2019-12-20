@@ -7,5 +7,7 @@
 * An example line for running a small gridworld experiment: 
 ```python toyscript_v2.py --algo reinforce --env MiniGrid-Empty-5x5-v0 --save_model 1 --lr 0.0003 --num_episodes 5000 --optimizer Adam```
 
+* Replaying a trained policy: You can use `replay_results.py` for this. At the moment I hard coded the file, but basically need to have the `modelpath` variable to point to the model which will be replayed. 
+
 
  
