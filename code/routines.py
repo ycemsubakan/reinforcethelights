@@ -243,34 +243,36 @@ class a2c(BaseAlgo):
     def update_parameters(self, exps, preprocess_obss=None):
 
         T = exps['rewards'].shape[0]
-        _, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
+        #_, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
 
-        nextvalues = torch.cat([values[1:], torch.zeros(1).to(self.device)], dim=0)
+        #nextvalues = torch.cat([values[1:], torch.zeros(1).to(self.device)], dim=0)
 
         all_Gs = []
         for t in range(T):
             gams = ((torch.ones(T - t) * self.discount) ** torch.arange(T-t).float()).to(self.device)
             all_Gs.append((exps['rewards'][t:T] * gams).sum().to(self.device))
-
-        with torch.no_grad():
-            deltas = exps['rewards'] + self.discount * nextvalues - values
-            #deltas = deltas * gams
-
         all_Gs = torch.tensor(all_Gs).to(self.device) 
 
         for nein in range(1):
             self.valoptimizer.zero_grad()
-            valuepart = (exps['rewards'] + self.discount * nextvalues - values).pow(2).mean()
+            _, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
+            valuepart = (all_Gs  - values).pow(2).mean()
             valuepart.backward(retain_graph=True)
             self.valoptimizer.step()
         print(valuepart.item())
+
+        with torch.no_grad():
+            _, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
+            deltas = all_Gs - values
+            #deltas = deltas * gams
+
 
         self.optimizer.zero_grad()
         log_p = (- (deltas*exps['log_probs'][:T]).mean())  
         print(log_p.item())
         log_p.backward(retain_graph=True)
 
-
+        self.optimizer.step()
 
 
 class GModel(nn.Module, torch_ac.RecurrentACModel):
