@@ -263,7 +263,10 @@ class a2c(BaseAlgo):
 
         with torch.no_grad():
             _, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
-            deltas = all_Gs - values
+
+            nextvalues = torch.cat([values[1:], torch.zeros(1).to(self.device)], dim=0)
+
+            deltas = exps['rewards'] + self.discount*nextvalues - values
             #deltas = deltas * gams
 
 
