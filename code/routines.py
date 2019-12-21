@@ -256,7 +256,7 @@ class a2c(BaseAlgo):
         for nein in range(1):
             self.valoptimizer.zero_grad()
             _, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
-            valuepart = (all_Gs  - values).pow(2).mean()
+            valuepart = 0.5*(all_Gs  - values).pow(2).mean()
             valuepart.backward(retain_graph=True)
             self.valoptimizer.step()
         print(valuepart.item())
