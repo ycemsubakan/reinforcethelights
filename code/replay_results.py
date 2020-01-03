@@ -39,7 +39,9 @@ acmodel = rt.GModel(obs_space, env.action_space, algo=args.algo)
 #modelpath = 'algo_results/MiniGrid-Empty-5x5-v0_policy_gradient_lr0.001_gam0.99_seed1_19-12-16-15-58-28.t'
 #modelpath = 'algo_results/MiniGrid-Empty-5x5-v0_policy_gradient_lr0.001_gam0.99_seed1_19-12-16-16-04-32.t'
 #modelpath = 'algo_results/MiniGrid-Empty-5x5-v0_policy_gradient_lr0.0004_seed1_19-12-16-18-24-55.t'
-modelpath = 'algo_results/MiniGrid-Empty-5x5-v0_reinforce_wbase_lr0.0003_Adam_seed1_19-12-18-16-12-32.t'
+#modelpath = 'algo_results/MiniGrid-Empty-5x5-v0_reinforce_wbase_lr0.0003_Adam_seed1_19-12-18-16-12-32.t'
+#modelpath = 'algo_results/MiniGrid-Empty-5x5-v0_a2c_lr0.0003_Adam_seed1_19-12-28-16-34-46.t'
+modelpath = 'algo_results/MiniGrid-Empty-5x5-v0_a2c_lr0.0003_Adam_seed1_19-12-28-17-46-12.t'
 
 # start plotting things
 
@@ -48,7 +50,7 @@ params = torch.load(modelpath)
 acmodel.load_state_dict(params) 
 
 # load the algo to generate experiences (the algo we choose doesn't matter) 
-algo = rt.reinforce_wbaseline(envs, acmodel=acmodel, device='cpu', args=args, preprocess_obss=preprocess_obss) 
+algo = rt.a2c(envs, acmodel=acmodel, device='cpu', args=args, preprocess_obss=preprocess_obss, mode='test') 
                           
 
 # the function below collects the experiences and renders the interactions 

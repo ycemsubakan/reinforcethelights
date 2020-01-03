@@ -36,10 +36,12 @@ class BaseAlgo(ABC):
     def __init__(self, envs, acmodel, device, args, preprocess_obss, mode='train'):
 
         # Store parameters
+        self.mode = mode
         if mode == 'train':
-            self.env = (envs[0])
+            self.env = (envs[0])  #ParallelEnv(envs) 
         else:
             self.env = (envs[0])
+        self.envs = envs
 
         self.acmodel = acmodel
         self.device = device
@@ -73,17 +75,22 @@ class BaseAlgo(ABC):
 
         all_obs = []
         all_actions = []
-        all_rewards = torch.zeros(self.num_frames_per_proc).to(self.device)
-        log_probs = torch.zeros(self.num_frames_per_proc).to(self.device)
-        all_values = torch.zeros(self.num_frames_per_proc).to(self.device)
+        all_rewards = torch.zeros(self.num_frames_per_proc, self.num_procs).to(self.device)
+        log_probs = torch.zeros(self.num_frames_per_proc, self.num_procs).to(self.device)
+        all_values = torch.zeros(self.num_frames_per_proc, self.num_procs).to(self.device)
+        all_entropy = torch.zeros(self.num_frames_per_proc, self.num_procs).to(self.device)
 
         obs = self.env.reset()
         all_frames = []
 
         for i in range(self.num_frames_per_proc):
             # Do one agent-environment interaction
+            
+            if self.mode == 'train':  
+                preprocessed_obs = self.preprocess_obss([obs], device=self.device)
+            else:
+                preprocessed_obs = self.preprocess_obss([obs], device=self.device)
 
-            preprocessed_obs = self.preprocess_obss([obs], device=self.device)
             #with torch.no_grad():
             dist, value = self.acmodel(preprocessed_obs)
             action = dist.sample()
@@ -104,6 +111,7 @@ class BaseAlgo(ABC):
             
             all_rewards[i] = torch.tensor(reward, device=self.device)
             log_probs[i] = dist.log_prob(action)
+            all_entropy[i] = dist.entropy()
             all_values[i] = value
 
             
@@ -114,7 +122,71 @@ class BaseAlgo(ABC):
                 'rewards': all_rewards, 
                 'log_probs': log_probs, 
                 'all_values': all_values,
-                'all_frames': all_frames}
+                'all_frames': all_frames,
+                'all_entropy': all_entropy}
+
+
+    def collect_experiences_parallelfor(self):
+        """Collects rollouts and computes advantages.
+        Returns
+        -------
+        """
+
+        all_obs = []
+        all_actions = []
+        all_rewards = torch.zeros(self.num_frames_per_proc, self.num_procs).to(self.device)
+        log_probs = torch.zeros(self.num_frames_per_proc, self.num_procs).to(self.device)
+        all_values = torch.zeros(self.num_frames_per_proc, self.num_procs).to(self.device)
+        all_entropy = torch.zeros(self.num_frames_per_proc, self.num_procs).to(self.device)
+
+        obs_par = [env.reset() for env in self.envs]
+        all_frames = []
+
+        for i in range(self.num_frames_per_proc):
+            actions_par = []
+            for j in range(self.num_procs):
+                # Inner loop is for the episodes
+            
+                preprocessed_obs = self.preprocess_obss([obs_par[j]], device=self.device)
+
+                #with torch.no_grad():
+                dist, value = self.acmodel(preprocessed_obs)
+                action = dist.sample()
+                #prbs = dist.probs
+                #action = torch.argmax(prbs)
+
+                #print(prbs, action)
+                if self.render:
+                    self.env.render()
+                    time.sleep(0.1)
+                    all_frames.append(np.moveaxis(self.env.render("rgb_array"), 2, 0))
+
+                obs, reward, done, _ = self.envs[j].step(action.cpu().numpy())
+
+                # record the j'th episode
+                obs_par[j] = obs
+                actions_par.append(action)
+                
+                all_rewards[i, j] = reward
+                log_probs[i, j] = dist.log_prob(action)
+                all_entropy[i, j] = dist.entropy()
+                all_values[i, j] = value
+
+            all_actions.append(actions_par)
+            all_obs.append(obs_par)
+
+                
+            # Preprocess experiences
+
+        return {'obs': all_obs, 
+                'actions': all_actions,
+                'rewards': all_rewards, 
+                'log_probs': log_probs, 
+                'all_values': all_values,
+                'all_frames': all_frames,
+                'all_entropy': all_entropy}
+
+
 
 
     @abstractmethod
@@ -226,16 +298,16 @@ class reinforce_wbaseline(BaseAlgo):
 class a2c(BaseAlgo):
     """standard actor critic algorithm"""
 
-    def __init__(self, envs, acmodel, device=None, args=None, preprocess_obss=None):
+    def __init__(self, envs, acmodel, device=None, args=None, preprocess_obss=None, mode='train'):
 
-        super().__init__(envs, acmodel, device, args=args, preprocess_obss=preprocess_obss)
+        super().__init__(envs, acmodel, device, args=args, preprocess_obss=preprocess_obss, mode=mode)
 
         if args.optimizer == 'SGD':
             self.optimizer = torch.optim.SGD(self.acmodel.parameters(), args.lr)
             self.valoptimizer = torch.optim.SGD(self.acmodel.critic.parameters(), args.lr)
         elif args.optimizer == 'Adam': 
             self.optimizer = torch.optim.Adam(self.acmodel.parameters(), args.lr)
-            self.valoptimizer = torch.optim.Adam(self.acmodel.critic.parameters(), args.lr)
+            #self.valoptimizer = torch.optim.Adam(self.acmodel.critic.parameters(), args.lr)
         else:
             raise ValueError('Wrong optimizer name')
 
@@ -247,31 +319,48 @@ class a2c(BaseAlgo):
 
         #nextvalues = torch.cat([values[1:], torch.zeros(1).to(self.device)], dim=0)
 
-        all_Gs = []
+        all_Gs = torch.zeros(T, self.num_procs).to(self.device)
         for t in range(T):
-            gams = ((torch.ones(T - t) * self.discount) ** torch.arange(T-t).float()).to(self.device)
-            all_Gs.append((exps['rewards'][t:T] * gams).sum().to(self.device))
-        all_Gs = torch.tensor(all_Gs).to(self.device) 
+            gams = ((torch.ones(T - t, self.num_procs) * self.discount) ** (torch.arange(T-t).unsqueeze(1).repeat(1, self.num_procs)).float()).to(self.device)
+            #all_Gs.append((exps['rewards'][t:T] * gams).sum(0, keepdim=True).to(self.device))
+            all_Gs[t] = (exps['rewards'][t:T] * gams).sum(0).to(self.device)
 
-        for nein in range(1):
-            self.valoptimizer.zero_grad()
-            _, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
-            valuepart = 0.5*(all_Gs  - values).pow(2).mean()
-            valuepart.backward(retain_graph=True)
-            self.valoptimizer.step()
-        print(valuepart.item())
+        #all_Gs = torch.tensor(all_Gs).to(self.device) 
 
+        #for nein in range(1):
+        #    self.valoptimizer.zero_grad()
+            #_, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
+        value_loss = 0.5*(all_Gs  - exps['all_values']).pow(2).mean()
+        #    valuepart.backward(retain_graph=True)
+        #    self.valoptimizer.step()
+        #print(valuepart.item())
+
+
+        gae_lambda = 0.95
         with torch.no_grad():
-            _, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
+            advantages = torch.zeros(self.num_frames_per_proc, self.num_procs).to(self.device)
+            for i in reversed(range(self.num_frames_per_proc)):
+                #next_mask = self.masks[i+1] if i < self.num_frames_per_proc - 1 else self.mask
+                next_value = exps['all_values'][i+1] if i < self.num_frames_per_proc - 1 else exps['all_values'][-1]
+                next_advantage = advantages[i+1] if i < self.num_frames_per_proc - 1 else 0
 
-            nextvalues = torch.cat([values[1:], torch.zeros(1).to(self.device)], dim=0)
+                delta = exps['rewards'][i] + self.discount * next_value - exps['all_values'][i]
+                advantages[i] = delta + self.discount * gae_lambda * next_advantage #* next_mask
+        advantages.detach()
 
-            deltas = exps['rewards'] + self.discount*nextvalues - values
-            #deltas = deltas * gams
+
+        #with torch.no_grad():
+        #    _, values = self.acmodel.forward(preprocess_obss(exps['obs'], device=self.device))
+
+        #    nextvalues = torch.cat([values[1:], torch.zeros(1).to(self.device)], dim=0)
+
+        #    deltas = exps['rewards'] + self.discount*nextvalues - values
+        #    #deltas = deltas * gams
 
 
         self.optimizer.zero_grad()
-        log_p = (- (deltas*exps['log_probs'][:T]).mean())  
+        log_p = (- (advantages*exps['log_probs'][:T]).mean())  
+        loss = log_p + value_loss - exps['all_entropy'].mean()
         print(log_p.item())
         log_p.backward(retain_graph=True)
 

@@ -98,8 +98,10 @@ model_dir = utils.get_model_dir(model_name)
 utils.seed(args.seed)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-env = utils.make_env(args.env, args.seed)
-envs = [env]
+envs = [] 
+for n in range(args.procs):
+    env = utils.make_env(args.env, args.seed)
+    envs.append(env)
 
 obs_space, preprocess_obss = utils.get_obss_preprocessor(env.observation_space)
 acmodel = rt.GModel(obs_space, env.action_space, algo=args.algo)
@@ -109,7 +111,7 @@ if args.algo == 'reinforce':
 elif args.algo == 'reinforce_wbase':
     algo = rt.reinforce_wbaseline(envs, acmodel, device, args=args, preprocess_obss=preprocess_obss)
 elif args.algo == 'a2c':
-    algo = rt.a2c(envs, acmodel, device, args=args, preprocess_obss=preprocess_obss)
+    algo = rt.a2c(envs, acmodel, device, args=args, preprocess_obss=preprocess_obss, mode='train')
 else:
     raise ValueError("Incorrect algorithm name: {}".format(args.algo))
 
@@ -122,16 +124,17 @@ for i in range(args.num_episodes):
     print('episode {}'.format(i))
 
     update_start_time = time.time()
-    exps = algo.collect_experiences_basic()
+    exps = algo.collect_experiences_parallelfor()
 
     algo.update_parameters(exps, preprocess_obss)
-    all_rewards.append(exps['rewards'].sum().item())
+    all_rewards.append(exps['rewards'][:, 0].sum().item())
     #print(exps.reward)
     running_mean = torch.tensor(all_rewards).cumsum(0)/torch.arange(i+1).float()
 
     if i % 25 == 0 and i > 0:
         vis.line(all_rewards, win='all_rewards')
         vis.line(running_mean, win='running_mean')
+        print('rewards ', exps['rewards'][:, 0]) 
     
         if args.save_model:
             pickle.dump({'all_rewards' : all_rewards, 'running_mean' : running_mean.numpy(), 'args': args.__dict__}, 

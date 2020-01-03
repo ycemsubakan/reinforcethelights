@@ -1,48 +1,48 @@
 import flow.networks as networks
 from flow.networks import RingNetwork
 
-# ring road network class
-network_name = RingNetwork
-
-# input parameter classes to the network class
 from flow.core.params import NetParams, InitialConfig
-
-# name of the network
-name = "training_example"
-
-# network-specific parameters
 from flow.networks.ring import ADDITIONAL_NET_PARAMS
-net_params = NetParams(additional_params=ADDITIONAL_NET_PARAMS)
-
-# initial configuration to vehicles
-initial_config = InitialConfig(spacing="uniform", perturbation=1)
-
 # vehicles class
 from flow.core.params import VehicleParams
 
 # vehicles dynamics models
 from flow.controllers import IDMController, ContinuousRouter
+from flow.controllers import RLController
+
+from flow.core.params import SumoParams
+from flow.core.params import EnvParams
+import pdb
+
+
+# ring road network class
+network_name = RingNetwork
+
+# name of the network
+name = "training_example"
+
+# network-specific parameters
+net_params = NetParams(additional_params=ADDITIONAL_NET_PARAMS)
+
+# initial configuration to vehicles
+initial_config = InitialConfig(spacing="uniform", perturbation=1)
 
 vehicles = VehicleParams()
 vehicles.add("human", acceleration_controller=(IDMController, {}),
              routing_controller=(ContinuousRouter, {}),
-             num_vehicles=21)
-
-from flow.controllers import RLController
+             num_vehicles=10)
 
 vehicles.add(veh_id="rl",
              acceleration_controller=(RLController, {}),
              routing_controller=(ContinuousRouter, {}),
              num_vehicles=1)
 
-from flow.core.params import SumoParams
 
 sumo_params = SumoParams(sim_step=0.1, render=False)
 
-from flow.core.params import EnvParams
 
 # Define horizon as a variable to ensure consistent use across notebook
-HORIZON=100
+HORIZON=500
 
 env_params = EnvParams(
     # length of one rollout
@@ -89,7 +89,6 @@ flow_params = dict(
 
 
 import json
-
 import ray
 try:
     from ray.rllib.agents.agent import get_agent_class
@@ -102,12 +101,11 @@ from flow.utils.registry import make_create_env
 from flow.utils.rllib import FlowParamsEncoder
 
 # number of parallel workers
-N_CPUS = 2
+N_CPUS = 4
 # number of rollouts per training iteration
-N_ROLLOUTS = 1
+N_ROLLOUTS = 2
 
 ray.init(num_cpus=N_CPUS)
-
 
 # The algorithm or model to train. This may refer to "
 #      "the name of a built-on algorithm (e.g. RLLib's DQN "
@@ -117,7 +115,7 @@ alg_run = "PPO"
 
 agent_cls = get_agent_class(alg_run)
 config = agent_cls._default_config.copy()
-config["num_workers"] = N_CPUS - 1  # number of parallel workers
+#config["num_workers"] = N_CPUS - 1  # number of parallel workers
 config["train_batch_size"] = HORIZON * N_ROLLOUTS  # batch size
 config["gamma"] = 0.999  # discount rate
 config["model"].update({"fcnet_hiddens": [16, 16]})  # size of hidden layers in network
@@ -148,11 +146,11 @@ trials = run_experiments({
         "config": {
             **config
         },
-        "checkpoint_freq": 1,  # number of iterations between checkpoints
+        "checkpoint_freq": 20,  # number of iterations between checkpoints
         "checkpoint_at_end": True,  # generate a checkpoint at the end
         "max_failures": 999,
         "stop": {  # stopping conditions
-            "training_iteration": 1,  # number of iterations to stop after
+            "training_iteration": 30000,  # number of iterations to stop after
         },
     },
 })
