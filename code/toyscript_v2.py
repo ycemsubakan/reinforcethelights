@@ -104,7 +104,10 @@ for n in range(args.procs):
     envs.append(env)
 
 obs_space, preprocess_obss = utils.get_obss_preprocessor(env.observation_space)
-acmodel = rt.GModel(obs_space, env.action_space, algo=args.algo)
+
+if args.algo in ['reinforce', 'reinforce_wbase', 'a2c']:
+    acmodel = rt.GModel(obs_space, env.action_space, algo=args.algo) 
+#    acmodel = rt.DQN( )
 
 if args.algo == 'reinforce':
     algo = rt.reinforce(envs, acmodel, device, args=args, preprocess_obss=preprocess_obss)
@@ -112,33 +115,81 @@ elif args.algo == 'reinforce_wbase':
     algo = rt.reinforce_wbaseline(envs, acmodel, device, args=args, preprocess_obss=preprocess_obss)
 elif args.algo == 'a2c':
     algo = rt.a2c(envs, acmodel, device, args=args, preprocess_obss=preprocess_obss, mode='train')
+elif args.algo == 'dqn':
+    target_net = rt.GModel(obs_space, env.action_space, algo=args.algo).to(device)
+    policy_net = rt.GModel(obs_space, env.action_space, algo=args.algo).to(device)
+
+    algo = rt.DQN(target_net, policy_net, device, preprocess_obss=preprocess_obss)
 else:
     raise ValueError("Incorrect algorithm name: {}".format(args.algo))
 
 
-reward = 0
-done = False
+steps_done = 0 
+if args.algo == 'dqn':
 
-all_rewards = [] 
-for i in range(args.num_episodes):
-    print('episode {}'.format(i))
+    all_rewards = [] 
+    for i_episode in range(args.num_episodes):
+        # Initialize the environment and state
+        obs = env.reset()
+        
+        rewards_ep = []
+        for t in range(args.frames_per_proc):
+            # Select and perform an action
+            action = algo.select_action(preprocess_obss([obs], device=device))
+            next_obs, reward, done, _ = env.step(action.item())
+            reward = torch.tensor([reward], device=device).float()
+            rewards_ep.append(reward.item())
 
-    update_start_time = time.time()
-    exps = algo.collect_experiences_parallelfor()
+            # Store the transition in memory
+            algo.memory.push(obs, action, next_obs, reward)
 
-    algo.update_parameters(exps, preprocess_obss)
-    all_rewards.append(exps['rewards'][:, 0].sum().item())
-    #print(exps.reward)
-    running_mean = torch.tensor(all_rewards).cumsum(0)/torch.arange(i+1).float()
+            # Move to the next state
+            obs = next_obs
 
-    if i % 25 == 0 and i > 0:
-        vis.line(all_rewards, win='all_rewards')
-        vis.line(running_mean, win='running_mean')
-        print('rewards ', exps['rewards'][:, 0]) 
-    
-        if args.save_model:
-            pickle.dump({'all_rewards' : all_rewards, 'running_mean' : running_mean.numpy(), 'args': args.__dict__}, 
-                    open('algo_results/' + model_name + '.pk', 'wb'))
+            # Perform one step of the optimization (on the target network)
+            algo.optimize_model()
+            #if done:
+            #    episode_durations.append(t + 1)
+            #    plot_durations()
+            #    break
+        # Update the target network, copying all weights and biases in DQN
+        if (i_episode % algo.target_update) == 0:
+            target_net.load_state_dict(policy_net.state_dict())
+        pass
+        all_rewards.append(torch.tensor(rewards_ep).sum().item())
+
+        running_mean = torch.tensor(all_rewards).cumsum(0)/torch.arange(i_episode+1).float()
+
+        if i_episode % 5 == 0 and i_episode > 0:
+            vis.line(all_rewards, win='all_rewards')
+            vis.line(running_mean, win='running_mean')
+            print('episode {} rewards {} epsth {} '.format(i_episode, all_rewards[-1], algo.eps_threshold))
+            #print(all_rewards)
+            #print('rewards ', exps['rewards'][:, 0]) 
+else:
+    reward = 0
+    done = False
+
+    all_rewards = [] 
+    for i in range(args.num_episodes):
+        print('episode {}'.format(i))
+
+        update_start_time = time.time()
+        exps = algo.collect_experiences_parallelfor()
+
+        algo.update_parameters(exps, preprocess_obss)
+        all_rewards.append(exps['rewards'][:, 0].sum().item())
+        #print(exps.reward)
+        running_mean = torch.tensor(all_rewards).cumsum(0)/torch.arange(i+1).float()
+
+        if i % 25 == 0 and i > 0:
+            vis.line(all_rewards, win='all_rewards')
+            vis.line(running_mean, win='running_mean')
+            print('rewards ', exps['rewards'][:, 0]) 
+        
+            if args.save_model:
+                pickle.dump({'all_rewards' : all_rewards, 'running_mean' : running_mean.numpy(), 'args': args.__dict__}, 
+                        open('algo_results/' + model_name + '.pk', 'wb'))
 
 if args.save_model:
     torch.save(acmodel.cpu().state_dict(), 'algo_results/' + model_name + '.t')
