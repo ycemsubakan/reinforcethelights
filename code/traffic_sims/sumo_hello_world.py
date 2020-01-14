@@ -29,12 +29,12 @@ print(ADDITIONAL_NET_PARAMS)
 
 
 net_params = NetParams(additional_params={
-                         "radius": 80,
-                        'length': 330, 
-                        'lanes': 3, 
-                        'speed_limit': 10, 
-                        'resolution': 40
-                    })
+    "radius": 80,
+    'length': 330,
+    'lanes': 3,
+    'speed_limit': 10,
+    'resolution': 40
+})
 
 
 initial_config = InitialConfig(spacing="uniform", perturbation=1)
