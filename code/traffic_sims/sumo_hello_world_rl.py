@@ -1,3 +1,10 @@
+from flow.utils.rllib import FlowParamsEncoder
+from flow.utils.registry import make_create_env
+from ray.tune.registry import register_env
+from ray.tune import run_experiments
+import ray
+import json
+from flow.envs import WaveAttenuationPOEnv
 import flow.networks as networks
 from flow.networks import RingNetwork
 
@@ -42,7 +49,7 @@ sumo_params = SumoParams(sim_step=0.1, render=False)
 
 
 # Define horizon as a variable to ensure consistent use across notebook
-HORIZON=500
+HORIZON = 500
 
 env_params = EnvParams(
     # length of one rollout
@@ -53,16 +60,15 @@ env_params = EnvParams(
         "max_accel": 1,
         # maximum deceleration of autonomous vehicles
         "max_decel": 1,
-        # bounds on the ranges of ring road lengths the autonomous vehicle 
+        # bounds on the ranges of ring road lengths the autonomous vehicle
         # is trained on
         "ring_length": [220, 270],
     },
 )
 
-from flow.envs import WaveAttenuationPOEnv
 env_name = WaveAttenuationPOEnv
 
-# Creating flow_params. Make sure the dictionary keys are as specified. 
+# Creating flow_params. Make sure the dictionary keys are as specified.
 flow_params = dict(
     # name of the experiment
     exp_tag=name,
@@ -79,26 +85,20 @@ flow_params = dict(
     # network-related parameters (see flow.core.params.NetParams and
     # the network's documentation or ADDITIONAL_NET_PARAMS component)
     net=net_params,
-    # vehicles to be placed in the network at the start of a rollout 
+    # vehicles to be placed in the network at the start of a rollout
     # (see flow.core.vehicles.Vehicles)
     veh=vehicles,
-    # (optional) parameters affecting the positioning of vehicles upon 
+    # (optional) parameters affecting the positioning of vehicles upon
     # initialization/reset (see flow.core.params.InitialConfig)
     initial=initial_config
 )
 
 
-import json
-import ray
 try:
     from ray.rllib.agents.agent import get_agent_class
 except ImportError:
     from ray.rllib.agents.registry import get_agent_class
-from ray.tune import run_experiments
-from ray.tune.registry import register_env
 
-from flow.utils.registry import make_create_env
-from flow.utils.rllib import FlowParamsEncoder
 
 # number of parallel workers
 N_CPUS = 4
@@ -115,13 +115,15 @@ alg_run = "PPO"
 
 agent_cls = get_agent_class(alg_run)
 config = agent_cls._default_config.copy()
-#config["num_workers"] = N_CPUS - 1  # number of parallel workers
+# config["num_workers"] = N_CPUS - 1  # number of parallel workers
 config["train_batch_size"] = HORIZON * N_ROLLOUTS  # batch size
 config["gamma"] = 0.999  # discount rate
-config["model"].update({"fcnet_hiddens": [16, 16]})  # size of hidden layers in network
+# size of hidden layers in network
+config["model"].update({"fcnet_hiddens": [16, 16]})
 config["use_gae"] = True  # using generalized advantage estimation
-config["lambda"] = 0.97  
-config["sgd_minibatch_size"] = min(16 * 1024, config["train_batch_size"])  # stochastic gradient descent
+config["lambda"] = 0.97
+config["sgd_minibatch_size"] = min(
+    16 * 1024, config["train_batch_size"])  # stochastic gradient descent
 config["kl_target"] = 0.02  # target KL divergence
 config["num_sgd_iter"] = 10  # number of SGD iterations
 config["horizon"] = HORIZON  # rollout horizon
@@ -129,10 +131,11 @@ config["horizon"] = HORIZON  # rollout horizon
 # save the flow params for replay
 flow_json = json.dumps(flow_params, cls=FlowParamsEncoder, sort_keys=True,
                        indent=4)  # generating a string version of flow_params
-config['env_config']['flow_params'] = flow_json  # adding the flow_params to config dict
+# adding the flow_params to config dict
+config['env_config']['flow_params'] = flow_json
 config['env_config']['run'] = alg_run
 
-# Call the utility function make_create_env to be able to 
+# Call the utility function make_create_env to be able to
 # register the Flow env for this experiment
 create_env, gym_name = make_create_env(params=flow_params, version=0)
 
@@ -154,4 +157,3 @@ trials = run_experiments({
         },
     },
 })
-
